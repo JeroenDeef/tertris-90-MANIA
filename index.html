@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris '90s Mania (Rondjes)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS for 90s retro feel */
+        body {
+            font-family: 'Inter', sans-serif; /* Default font */
+            background: linear-gradient(135deg, #8A2BE2, #4B0082, #00BFFF); /* Vibrant 90s gradient */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        .pixel-font {
+            font-family: 'Press Start 2P', cursive; /* Pixelated font for game text */
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.5); /* Retro shadow */
+        }
+
+        .game-container {
+            background-color: #1a1a2e; /* Dark background for the game area */
+            border: 8px solid #00FFFF; /* Neon cyan border */
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.7), 0 0 60px rgba(0, 255, 255, 0.4); /* Glowing effect */
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            max-width: 95vw; /* Ensure it fits on smaller screens */
+            width: 800px; /* Max width for larger screens */
+        }
+
+        canvas {
+            background-color: #000000; /* Game board background */
+            border: 4px solid #FF00FF; /* Neon magenta inner border */
+            border-radius: 8px;
+            display: block;
+            touch-action: none; /* Disable default touch actions like scrolling/zooming */
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0 10px;
+            color: #FFFFFF;
+            font-size: 1.25rem; /* text-xl */
+        }
+
+        .game-controls {
+            display: flex;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            justify-content: center;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .game-button {
+            @apply px-6 py-3 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105;
+            background: linear-gradient(145deg, #FF69B4, #FF1493); /* Hot pink gradient */
+            color: white;
+            border: 3px solid #FFD700; /* Gold border */
+            box-shadow: 0 5px 15px rgba(255, 20, 147, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.5);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .game-button:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 5px rgba(255, 20, 147, 0.6), inset 0 0 5px rgba(255, 255, 255, 0.8);
+        }
+
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 5px solid #00FFFF;
+            border-radius: 15px;
+            padding: 30px;
+            color: #FFFFFF;
+            text-align: center;
+            z-index: 1000;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.8);
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .message-box button {
+            @apply px-6 py-3 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-105;
+            background: linear-gradient(145deg, #7FFF00, #32CD32); /* Green gradient */
+            color: white;
+            border: 3px solid #FFD700;
+            box-shadow: 0 5px 15px rgba(50, 205, 50, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.5);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-container {
+                padding: 15px;
+                gap: 15px;
+            }
+            .game-info {
+                font-size: 1rem; /* text-base */
+            }
+            .game-button {
+                padding: 10px 20px;
+                font-size: 1rem;
+            }
+            .pixel-font {
+                font-size: 1.5rem; /* Adjust for smaller screens */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 10px;
+                gap: 10px;
+            }
+            .game-info {
+                flex-direction: column;
+                align-items: center;
+                gap: 5px;
+            }
+            .game-button {
+                width: calc(50% - 10px); /* Two buttons per row */
+            }
+            .pixel-font {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+    <div class="game-container">
+        <h1 class="pixel-font text-4xl text-yellow-300 mb-4">Tetris '90s Mania (Rondjes)</h1>
+
+        <div class="game-info pixel-font">
+            <div id="scoreDisplay">Score: 0</div>
+            <div id="levelDisplay">Level: 1</div>
+            <div class="flex items-center">
+                Next:
+                <canvas id="nextPieceCanvas" width="80" height="80" class="ml-2 border border-purple-500 rounded-md"></canvas>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="300" height="600"></canvas>
+
+        <div class="game-controls">
+            <button id="startButton" class="game-button">Start Spel</button>
+            <button id="restartButton" class="game-button hidden">Opnieuw Spelen</button>
+            <button id="pauseButton" class="game-button hidden">Pauze</button>
+            <button id="soundToggleButton" class="game-button hidden">Geluid Uit</button>
+            <button id="commentButton" class="game-button hidden">✨ '90s Commentaar</button>
+            <button id="tipButton" class="game-button hidden">💡 Tetris Tip</button>
+            <button id="leftButton" class="game-button md:hidden">Links</button>
+            <button id="rightButton" class="game-button md:hidden">Rechts</button>
+            <button id="downButton" class="game-button md:hidden">Omlaag</button>
+            <button id="rotateButton" class="game-button md:hidden">Draaien</button>
+        </div>
+    </div>
+
+    <div id="messageBox" class="message-box pixel-font">
+        <div id="messageText" class="text-2xl mb-4"></div>
+        <button id="messageBoxButton">OK</button>
+    </div>
+
+    <script>
+        // Get canvas and context
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gameCtx = gameCanvas.getContext('2d');
+        const nextPieceCanvas = document.getElementById('nextPieceCanvas');
+        const nextPieceCtx = nextPieceCanvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const soundToggleButton = document.getElementById('soundToggleButton');
+        const commentButton = document.getElementById('commentButton');
+        const tipButton = document.getElementById('tipButton');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const messageBoxButton = document.getElementById('messageBoxButton');
+
+        // Mobile control buttons
+        const leftButton = document.getElementById('leftButton');
+        const rightButton = document.getElementById('rightButton');
+        const downButton = document.getElementById('downButton');
+        const rotateButton = document.getElementById('rotateButton');
+
+        // Game constants
+        const COLS = 10;
+        const ROWS = 20;
+        const BLOCK_SIZE = gameCanvas.width / COLS; // Calculate block size based on canvas width
+        const COLORS = [
+            '#00FFFF', // Cyan (I)
+            '#0000FF', // Blue (J)
+            '#FFA500', // Orange (L)
+            '#FFFF00', // Yellow (O)
+            '#00FF00', // Green (S)
+            '#800080', // Purple (T)
+            '#FF0000'  // Red (Z)
+        ];
+
+        // Tetromino shapes (0: I, 1: J, 2: L, 3: O, 4: S, 5: T, 6: Z)
+        const SHAPES = [
+            [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], // I
+            [[1, 0, 0], [1, 1, 1], [0, 0, 0]],                         // J
+            [[0, 0, 1], [1, 1, 1], [0, 0, 0]],                         // L
+            [[1, 1], [1, 1]],                                          // O
+            [[0, 1, 1], [1, 1, 0], [0, 0, 0]],                         // S
+            [[0, 1, 0], [1, 1, 1], [0, 0, 0]],                         // T
+            [[1, 1, 0], [0, 1, 1], [0, 0, 0]]                          // Z
+        ];
+
+        // Game state variables
+        let board = [];
+        let currentPiece;
+        let nextPiece;
+        let score = 0;
+        let level = 1;
+        let dropInterval = 1000; // milliseconds
+        let lastDropTime = 0;
+        let gameOver = false;
+        let gameRunning = false;
+        let gamePaused = false;
+        let animationFrameId;
+
+        // Audio variables
+        let lineClearSynth;
+        let bgmSynth;
+        let bgmLoop;
+        let isMuted = false; // Initial state: not muted (sound is on)
+        let speechSynth = window.speechSynthesis; // Web Speech API
+        let currentUtterance = null; // To keep track of current speech
+
+        // Initialize the game board with empty cells
+        function initBoard() {
+            board = Array(ROWS).fill(0).map(() => Array(COLS).fill(0));
+        }
+
+        // Create a new random piece
+        function createPiece() {
+            const type = Math.floor(Math.random() * SHAPES.length);
+            const shape = SHAPES[type];
+            const color = COLORS[type];
+            return {
+                shape: shape,
+                color: color,
+                x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), // Center the piece
+                y: 0
+            };
+        }
+
+        // Draw a single block as a circle
+        function drawBlock(ctx, x, y, color) {
+            const centerX = x * BLOCK_SIZE + BLOCK_SIZE / 2;
+            const centerY = y * BLOCK_SIZE + BLOCK_SIZE / 2;
+            const radius = BLOCK_SIZE / 2 * 0.95; // Increased radius to make circles larger and closer
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#333'; // Darker border for block separation
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Draw the current piece
+        function drawPiece(ctx, piece, offsetX = 0, offsetY = 0) {
+            for (let r = 0; r < piece.shape.length; r++) {
+                for (let c = 0; c < piece.shape[r].length; c++) {
+                    if (piece.shape[r][c]) {
+                        drawBlock(ctx, piece.x + c + offsetX, piece.y + r + offsetY, piece.color);
+                    }
+                }
+            }
+        }
+
+        // Draw the entire game board
+        function drawBoard() {
+            gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c]) {
+                        drawBlock(gameCtx, c, r, board[r][c]);
+                    }
+                }
+            }
+            if (currentPiece) {
+                drawPiece(gameCtx, currentPiece);
+            }
+        }
+
+        // Draw the next piece preview
+        function drawNextPiece() {
+            nextPieceCtx.clearRect(0, 0, nextPieceCanvas.width, nextPieceCanvas.height);
+            if (nextPiece) {
+                // Adjust position for next piece canvas
+                const pieceWidth = nextPiece.shape[0].length;
+                const pieceHeight = nextPiece.shape.length;
+                const startX = (nextPieceCanvas.width / BLOCK_SIZE - pieceWidth) / 2;
+                const startY = (nextPieceCanvas.height / BLOCK_SIZE - pieceHeight) / 2;
+                drawPiece(nextPieceCtx, nextPiece, startX - nextPiece.x, startY - nextPiece.y);
+            }
+        }
+
+        // Check for collision
+        function checkCollision(piece, offsetX = 0, offsetY = 0) {
+            for (let r = 0; r < piece.shape.length; r++) {
+                for (let c = 0; c < piece.shape[r].length; c++) {
+                    if (piece.shape[r][c]) {
+                        const newX = piece.x + c + offsetX;
+                        const newY = piece.y + r + offsetY;
+
+                        // Check boundaries
+                        if (newX < 0 || newX >= COLS || newY >= ROWS) {
+                            return true;
+                        }
+                        // Check collision with existing blocks on the board (ignore negative Y for spawning)
+                        if (newY >= 0 && board[newY][newX]) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Merge current piece into the board
+        function mergePiece() {
+            for (let r = 0; r < currentPiece.shape.length; r++) {
+                for (let c = 0; c < currentPiece.shape[r].length; c++) {
+                    if (currentPiece.shape[r][c]) {
+                        if (currentPiece.y + r < 0) { // Piece spawned above the board, game over
+                            setGameOver();
+                            return;
+                        }
+                        board[currentPiece.y + r][currentPiece.x + c] = currentPiece.color;
+                    }
+                }
+            }
+        }
+
+        // Clear full lines with flash effect and sound
+        function clearLines() {
+            let linesCleared = 0;
+            const rowsToClear = []; // Store row indices that will be cleared
+
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(cell => cell !== 0)) {
+                    rowsToClear.push(r);
+                }
+            }
+
+            if (rowsToClear.length > 0) {
+                playLineClearSound(); // Play sound when lines are cleared
+
+                // Draw the flash effect directly on the canvas
+                gameCtx.save(); // Save current canvas state
+                gameCtx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // Semi-transparent white flash
+                rowsToClear.forEach(r => {
+                    gameCtx.fillRect(0, r * BLOCK_SIZE, gameCanvas.width, BLOCK_SIZE);
+                });
+                gameCtx.restore(); // Restore canvas state (flash will be gone on next drawBoard)
+
+                // Immediately remove the lines from the board data structure
+                // Iterate from bottom to top to avoid index issues
+                for (let i = rowsToClear.length - 1; i >= 0; i--) {
+                    const r = rowsToClear[i];
+                    board.splice(r, 1);
+                    board.unshift(Array(COLS).fill(0));
+                    linesCleared++;
+                }
+
+                updateScore(linesCleared);
+                // drawBoard will be called by gameLoop or moveDown, clearing the flash.
+            }
+        }
+
+        // Update score and level
+        function updateScore(linesCleared) {
+            const lineScores = [0, 100, 300, 500, 800]; // Score for 0, 1, 2, 3, 4 lines
+            score += lineScores[linesCleared] * level;
+            scoreDisplay.textContent = `Score: ${score}`;
+
+            const oldLevel = level;
+            level = Math.floor(score / 1000) + 1; // Level up every 1000 points
+            if (level > oldLevel) {
+                dropInterval = Math.max(50, dropInterval - 100); // Decrease drop interval, min 50ms
+                levelDisplay.textContent = `Level: ${level}`;
+            }
+        }
+
+        // Rotate the current piece
+        function rotatePiece() {
+            const originalShape = currentPiece.shape;
+            const N = originalShape.length;
+            const rotatedShape = Array(N).fill(0).map(() => Array(N).fill(0));
+
+            // Transpose and reverse rows for 90-degree clockwise rotation
+            for (let r = 0; r < N; r++) {
+                for (let c = 0; c < N; c++) {
+                    rotatedShape[c][N - 1 - r] = originalShape[r][c];
+                }
+            }
+
+            const originalX = currentPiece.x;
+            const originalY = currentPiece.y;
+            currentPiece.shape = rotatedShape;
+
+            // Wall kick logic (simple)
+            // Try to move piece if it collides after rotation
+            const kickTests = [
+                [0, 0],   // No kick
+                [-1, 0],  // Kick left
+                [1, 0],   // Kick right
+                [0, -1],  // Kick up (less common for Tetris, but can help)
+                [-2, 0],  // Double kick left
+                [2, 0]    // Double kick right
+            ];
+
+            for (let i = 0; i < kickTests.length; i++) {
+                const [dx, dy] = kickTests[i];
+                currentPiece.x = originalX + dx;
+                currentPiece.y = originalY + dy;
+                if (!checkCollision(currentPiece)) {
+                    return; // Rotation successful
+                }
+            }
+
+            // If all kicks fail, revert to original shape and position
+            currentPiece.shape = originalShape;
+            currentPiece.x = originalX;
+            currentPiece.y = originalY;
+        }
+
+        // Move piece down
+        function moveDown() {
+            if (checkCollision(currentPiece, 0, 1)) {
+                mergePiece();
+                clearLines();
+                if (!gameOver) { // Only create new piece if game is not over
+                    currentPiece = nextPiece;
+                    nextPiece = createPiece();
+                    drawNextPiece();
+                    if (checkCollision(currentPiece)) { // Check if new piece spawns in collision
+                        setGameOver();
+                    }
+                }
+            } else {
+                currentPiece.y++;
+            }
+            drawBoard();
+        }
+
+        // Move piece left
+        function moveLeft() {
+            if (!checkCollision(currentPiece, -1, 0)) {
+                currentPiece.x--;
+                drawBoard();
+            }
+        }
+
+        // Move piece right
+        function moveRight() {
+            if (!checkCollision(currentPiece, 1, 0)) {
+                currentPiece.x++;
+                drawBoard();
+            }
+        }
+
+        // Toggle pause state
+        function togglePause() {
+            if (!gameRunning || gameOver) return; // Can only pause if game is running and not over
+
+            gamePaused = !gamePaused;
+            if (gamePaused) {
+                cancelAnimationFrame(animationFrameId);
+                showMessageBox("Spel gepauzeerd");
+                pauseButton.textContent = "Hervat";
+                toggleBackgroundMusic(false); // Stop BGM when paused
+                stopSpeech(); // Stop any ongoing speech
+            } else {
+                hideMessageBox();
+                lastDropTime = performance.now(); // Reset time to prevent immediate drop after unpause
+                animationFrameId = requestAnimationFrame(gameLoop);
+                pauseButton.textContent = "Pauze";
+                toggleBackgroundMusic(true); // Start BGM when unpaused
+            }
+        }
+
+        // Handle keyboard input
+        function handleKeyPress(e) {
+            // Allow pause/unpause even when game is not running (e.g., from game over screen)
+            if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { // 'p' or 'P' or 'Escape' for pause
+                togglePause();
+                return; // Prevent other actions if pausing/unpausing
+            }
+
+            if (gameOver || !gameRunning || gamePaused) return; // Ignore input if game over, not running, or paused
+
+            switch (e.key) {
+                case 'ArrowLeft':
+                    moveLeft();
+                    break;
+                case 'ArrowRight':
+                    moveRight();
+                    break;
+                case 'ArrowDown':
+                    moveDown();
+                    lastDropTime = performance.now(); // Reset drop timer on manual down
+                    break;
+                case 'ArrowUp':
+                case ' ': // Spacebar for rotate
+                    rotatePiece();
+                    drawBoard();
+                    break;
+            }
+        }
+
+        // Show message box
+        function showMessageBox(message) {
+            messageText.textContent = message;
+            messageBox.style.display = 'flex';
+        }
+
+        // Hide message box
+        function hideMessageBox() {
+            messageBox.style.display = 'none';
+        }
+
+        // Set game over state
+        function setGameOver() {
+            gameOver = true;
+            gameRunning = false;
+            gamePaused = false; // Ensure game is not paused when over
+            cancelAnimationFrame(animationFrameId);
+            showMessageBox(`Game Over! Je score: ${score}`);
+            restartButton.classList.remove('hidden');
+            startButton.classList.add('hidden');
+            pauseButton.classList.add('hidden'); // Hide pause button on game over
+            soundToggleButton.classList.add('hidden'); // Hide sound toggle button on game over
+            commentButton.classList.add('hidden'); // Hide comment button on game over
+            tipButton.classList.add('hidden'); // Hide tip button on game over
+            toggleBackgroundMusic(false); // Stop BGM on game over
+            stopSpeech(); // Stop any ongoing speech
+        }
+
+        // Game loop
+        function gameLoop(currentTime) {
+            if (gameOver || !gameRunning || gamePaused) return; // Stop loop if game over, not running, or paused
+
+            if (currentTime - lastDropTime > dropInterval) {
+                moveDown();
+                lastDropTime = currentTime;
+            }
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize Tone.js synths (without starting transport)
+        function initAudio() {
+            if (typeof Tone !== 'undefined') {
+                lineClearSynth = new Tone.Synth({
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.05, release: 0.2 }
+                }).toDestination();
+
+                bgmSynth = new Tone.Synth({
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 }
+                }).toDestination();
+
+                const notes = ["C4", "E4", "G4", "A4"]; // Simple melody
+                let noteIndex = 0;
+                bgmLoop = new Tone.Loop(time => {
+                    if (!isMuted) { // Only play if not muted
+                        bgmSynth.triggerAttackRelease(notes[noteIndex % notes.length], "8n", time);
+                        noteIndex++;
+                    }
+                }, "4n"); // Play every quarter note
+            } else {
+                console.warn("Tone.js not loaded. Audio features will be disabled.");
+            }
+        }
+
+        // Play line clear sound
+        function playLineClearSound() {
+            if (!isMuted && lineClearSynth) {
+                lineClearSynth.triggerAttackRelease("C5", "8n");
+                lineClearSynth.triggerAttackRelease("E5", "8n", "+0.05");
+            }
+        }
+
+        // Toggle background music (start/stop the loop)
+        function toggleBackgroundMusic(play) {
+            if (bgmLoop && typeof Tone !== 'undefined' && Tone.context.state === 'running') {
+                if (play && !isMuted) {
+                    bgmLoop.start(0);
+                } else {
+                    bgmLoop.stop();
+                }
+            }
+        }
+
+        // Stop any ongoing speech
+        function stopSpeech() {
+            if (speechSynth && speechSynth.speaking) {
+                speechSynth.cancel();
+            }
+            currentUtterance = null;
+        }
+
+        // Speak text using Web Speech API
+        function speakText(text) {
+            if (!isMuted && speechSynth) {
+                stopSpeech(); // Stop previous speech before starting new one
+                currentUtterance = new SpeechSynthesisUtterance(text);
+                currentUtterance.lang = 'nl-NL'; // Set language to Dutch
+                
+                // Find a Dutch voice if available, otherwise use default
+                const voices = speechSynth.getVoices();
+                const dutchVoice = voices.find(voice => voice.lang === 'nl-NL' || voice.lang.startsWith('nl-'));
+                if (dutchVoice) {
+                    currentUtterance.voice = dutchVoice;
+                } else {
+                    console.warn("No Dutch voice found, using default.");
+                }
+
+                speechSynth.speak(currentUtterance);
+            }
+        }
+
+        // Toggle mute state
+        function toggleMute() {
+            isMuted = !isMuted;
+            if (isMuted) {
+                soundToggleButton.textContent = "Geluid Aan";
+                toggleBackgroundMusic(false); // Stop BGM when muted
+                stopSpeech(); // Stop speech when muted
+            } else {
+                soundToggleButton.textContent = "Geluid Uit";
+                // Only start BGM if game is running and not paused, and audio context is active
+                if (gameRunning && !gamePaused && typeof Tone !== 'undefined' && Tone.context.state === 'running') {
+                    toggleBackgroundMusic(true);
+                }
+            }
+        }
+
+        // LLM Integration: Get '90s themed comment
+        async function get90sComment() {
+            if (!gameRunning && !gamePaused) {
+                showMessageBox("Start het spel eerst om commentaar te krijgen!");
+                return;
+            }
+
+            let gameStatus = "bezig";
+            if (gameOver) {
+                gameStatus = "voorbij";
+            } else if (gamePaused) {
+                gameStatus = "gepauzeerd";
+            }
+
+            const prompt = `Je bent een enthousiaste gamecommentator uit de jaren '90 die commentaar geeft op een Tetris-spel. De huidige score is ${score} en het level is ${level}. Het spel is ${gameStatus}. Geef een korte, leuke opmerking in '90s stijl. Gebruik '90s slang en wees enthousiast.`;
+
+            showMessageBox("Laden commentaar... Even geduld, dude!"); // Loading message
+            commentButton.disabled = true; // Disable button while loading
+
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Canvas will automatically provide this in runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    showMessageBox(text); // Display the LLM's comment
+                    speakText(text); // Speak the LLM's comment
+                } else {
+                    showMessageBox("Whoa, mijn modem crashte! Geen commentaar deze keer.");
+                }
+            } catch (error) {
+                console.error("Fout bij het ophalen van commentaar:", error);
+                showMessageBox("Bummer! Er ging iets mis met het commentaar. Probeer het opnieuw.");
+            } finally {
+                commentButton.disabled = false; // Re-enable button
+            }
+        }
+
+        // LLM Integration: Get '90s themed Tetris tip
+        async function getTetrisTip() {
+            if (!gameRunning && !gamePaused) {
+                showMessageBox("Start het spel eerst om een tip te krijgen!");
+                return;
+            }
+
+            const prompt = `Je bent een wijze, coole Tetris goeroe uit de jaren '90. Geef een korte, nuttige Tetris-tip die past bij een speler op level ${level}. Gebruik '90s slang en wees bemoedigend.`;
+
+            showMessageBox("Laden van een vette tip... Even geduld, maat!"); // Loading message
+            tipButton.disabled = true; // Disable button while loading
+
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Canvas will automatically provide this in runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    showMessageBox(text); // Display the LLM's tip
+                    speakText(text); // Speak the LLM's tip
+                } else {
+                    showMessageBox("Mijn floppy disk is vol! Geen tip deze keer.");
+                }
+            } catch (error) {
+                console.error("Fout bij het ophalen van tip:", error);
+                showMessageBox("Whoops! Er ging iets mis met de tip. Probeer het opnieuw.");
+            } finally {
+                tipButton.disabled = false; // Re-enable button
+            }
+        }
+
+
+        // Start game function
+        function startGame() {
+            hideMessageBox();
+            initBoard();
+            score = 0;
+            level = 1;
+            dropInterval = 1000;
+            gameOver = false;
+            gameRunning = true;
+            gamePaused = false; // Ensure game starts unpaused
+            scoreDisplay.textContent = `Score: ${score}`;
+            levelDisplay.textContent = `Level: ${level}`;
+            currentPiece = createPiece();
+            nextPiece = createPiece();
+            drawNextPiece();
+            drawBoard();
+            lastDropTime = performance.now(); // Initialize lastDropTime
+            animationFrameId = requestAnimationFrame(gameLoop);
+            startButton.classList.add('hidden');
+            restartButton.classList.add('hidden'); // Hide restart button if visible
+            pauseButton.classList.remove('hidden'); // Show pause button
+            pauseButton.textContent = "Pauze"; // Reset pause button text
+            soundToggleButton.classList.remove('hidden'); // Show sound toggle button
+            commentButton.classList.remove('hidden'); // Show comment button
+            tipButton.classList.remove('hidden'); // Show tip button
+
+            // Ensure Tone.js audio context is started/resumed on user interaction
+            if (typeof Tone !== 'undefined') {
+                Tone.start().then(() => {
+                    console.log("Tone.js audio context started/resumed.");
+                    toggleBackgroundMusic(true); // Start BGM after context is running
+                }).catch(e => console.error("Error starting Tone.js audio context:", e));
+            }
+
+            // For Web Speech API, ensure it's resumed on user gesture
+            if (speechSynth && speechSynth.paused) {
+                speechSynth.resume();
+            }
+        }
+
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        pauseButton.addEventListener('click', togglePause);
+        soundToggleButton.addEventListener('click', toggleMute);
+        commentButton.addEventListener('click', get90sComment);
+        tipButton.addEventListener('click', getTetrisTip);
+        messageBoxButton.addEventListener('click', hideMessageBox);
+        document.addEventListener('keydown', handleKeyPress);
+
+        // Mobile touch controls (basic swipe/tap)
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchThreshold = 50; // Minimum distance for a swipe
+
+        gameCanvas.addEventListener('touchstart', (e) => {
+            if (gameOver || !gameRunning || gamePaused) return; // Ignore input if game over, not running, or or paused
+            e.preventDefault(); // Prevent scrolling
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+
+        gameCanvas.addEventListener('touchend', (e) => {
+            if (gameOver || !gameRunning || gamePaused) return; // Ignore input if game over, not running, or paused
+            e.preventDefault();
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+
+            const dx = touchEndX - touchStartX;
+            const dy = touchEndY - touchStartY;
+
+            if (Math.abs(dx) > Math.abs(dy)) { // Horizontal swipe
+                if (dx > touchThreshold) {
+                    moveRight();
+                } else if (dx < -touchThreshold) {
+                    moveLeft();
+                }
+            } else { // Vertical swipe or tap
+                if (dy > touchThreshold) {
+                    moveDown();
+                } else if (Math.abs(dy) < 10 && Math.abs(dx) < 10) { // Tap for rotate
+                    rotatePiece();
+                    drawBoard();
+                }
+            }
+        });
+
+        // Add event listeners for mobile buttons
+        leftButton.addEventListener('click', () => { if (!gamePaused) moveLeft(); });
+        rightButton.addEventListener('click', () => { if (!gamePaused) moveRight(); });
+        downButton.addEventListener('click', () => { if (!gamePaused) moveDown(); });
+        rotateButton.addEventListener('click', () => {
+            if (!gamePaused) {
+                rotatePiece();
+                drawBoard();
+            }
+        });
+
+        // Initial draw of the empty board and next piece area
+        initBoard();
+        drawBoard();
+        drawNextPiece(); // Draw empty next piece area initially
+
+        // Initialize audio system (only synths, not transport)
+        initAudio();
+
+        // Show start message
+        showMessageBox("Welkom bij Tetris '90s Mania! Druk op 'Start Spel' om te beginnen.");
+    </script>
+</body>
+</html>
